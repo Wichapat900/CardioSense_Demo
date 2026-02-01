@@ -1,7 +1,6 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-
-torch==2.1.2
-streamlit==1.31.0
+streamlit
+torch
 numpy
 scipy
-matplotlib
+wfdb
+scikit-learn
