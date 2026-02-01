@@ -1,29 +1,23 @@
 import numpy as np
-from scipy.signal import butter, filtfilt, find_peaks
-
-def bandpass_filter(ecg, fs, low=0.5, high=40):
-    nyq = 0.5 * fs
-    b, a = butter(3, [low / nyq, high / nyq], btype="band")
-    return filtfilt(b, a, ecg)
+from scipy.signal import find_peaks
 
 def detect_r_peaks(ecg, fs):
     """
-    Robust R-peak detection that works for:
-    - Normal beats
-    - PAC
-    - PVC (including inverted PVCs)
+    Simple and robust R-peak detection.
+    Works well for demo + MIT-BIH-like ECG.
     """
-    # 1. Filter ECG
-    filtered = bandpass_filter(ecg, fs)
 
-    # 2. Normalize
-    filtered = (filtered - np.mean(filtered)) / np.std(filtered)
+    ecg = ecg - np.mean(ecg)
+    ecg = ecg / (np.std(ecg) + 1e-8)
 
-    # 3. Detect peaks on absolute signal (IMPORTANT)
+    # Distance between heartbeats (≈ 200 ms)
+    min_distance = int(0.2 * fs)
+
+    # Peak detection
     peaks, _ = find_peaks(
-        np.abs(filtered),
-        distance=int(0.3 * fs),      # minimum 300 ms between beats
-        prominence=0.6               # controls sensitivity
+        ecg,
+        distance=min_distance,
+        prominence=0.6
     )
 
     return peaks
