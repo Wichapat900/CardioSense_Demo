@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 
 from model import ECG_CNN
 from utils import normalize_beat, detect_r_peaks, extract_beats
+from beat_detection import detect_r_peaks
+
 
 CLASSES = ["Normal", "PAC", "PVC"]
 
