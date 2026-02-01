@@ -1,5 +1,6 @@
-streamlit==1.31.0
-torch==2.1.2
+streamlit
 numpy
-scipy
-matplotlib
+scipymatplotlib
+scikit-learn
+wfdb
+torch
