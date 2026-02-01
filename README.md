@@ -1,13 +1,21 @@
-# 🫀 CardioSense – ECG Arrhythmia Detection Demo
+# CardioSense Demo 🫀
 
-CardioSense is a Streamlit-based ECG analysis app that detects:
+CardioSense is an ECG arrhythmia detection demo using a PyTorch CNN model.
+It classifies ECG beats into:
 
-- Normal heartbeats
-- PAC (Premature Atrial Contractions)
-- PVC (Premature Ventricular Contractions)
+- Normal
+- PAC (Premature Atrial Contraction)
+- PVC (Premature Ventricular Contraction)
 
-The model is trained using ECG beat data and runs inference on real ECG samples.
+## Project Structure
 
----
+- `CardioSense/src/app.py` – Streamlit app
+- `CardioSense/models/` – Trained PyTorch model
+- `CardioSense/data/` – Preprocessed ECG beats
+- `CardioSense/demo_ecg/` – Sample ECG signals
 
-## 📁 Project Structure
+## Run Locally
+
+```bash
+pip install -r requirements.txt
+streamlit run CardioSense/src/app.py
