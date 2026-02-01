@@ -1,39 +1,41 @@
 import numpy as np
-from scipy.signal import find_peaks
+from scipy.signal import butter, filtfilt, find_peaks
+
+
+def bandpass_filter(signal, fs, low=5, high=15, order=2):
+    nyq = 0.5 * fs
+    b, a = butter(order, [low / nyq, high / nyq], btype="band")
+    return filtfilt(b, a, signal)
+
 
 def detect_r_peaks(ecg, fs):
     """
-    Robust R-peak detection for Normal + PAC + PVC.
-    Inspired by Pan-Tompkins (simplified).
+    Robust R-peak detection for Normal / PAC / PVC
     """
+    ecg = np.asarray(ecg)
 
-    ecg = np.array(ecg)
+    # 1. Bandpass filter (QRS emphasis)
+    filtered = bandpass_filter(ecg, fs)
 
-    # 1. Remove baseline
-    ecg = ecg - np.mean(ecg)
+    # 2. Square the signal (Pan-Tompkins idea)
+    squared = filtered ** 2
 
-    # 2. Emphasize QRS (energy)
-    ecg_energy = ecg ** 2
-
-    # 3. Smooth (moving average ~120 ms)
-    window_size = int(0.12 * fs)
-    window_size = max(1, window_size)
-    ecg_smooth = np.convolve(
-        ecg_energy,
+    # 3. Moving average (150 ms window)
+    window_size = int(0.15 * fs)
+    integrated = np.convolve(
+        squared,
         np.ones(window_size) / window_size,
         mode="same"
     )
 
-    # 4. Adaptive threshold
-    threshold = 0.35 * np.max(ecg_smooth)
-
-    # 5. Minimum distance (200 ms)
-    min_distance = int(0.25 * fs)
+    # 4. Peak detection
+    distance = int(0.3 * fs)  # minimum 300 ms between beats
+    height = 0.3 * np.max(integrated)
 
     peaks, _ = find_peaks(
-        ecg_smooth,
-        height=threshold,
-        distance=min_distance
+        integrated,
+        distance=distance,
+        height=height
     )
 
     return peaks
