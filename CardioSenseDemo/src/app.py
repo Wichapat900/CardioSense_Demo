@@ -115,8 +115,3 @@ if st.button("🔍 Analyze ECG"):
     st.write(f"**Normal:** {normal_count / total * 100:.1f}%")
     st.write(f"**PAC:** {pac_count / total * 100:.1f}%")
     st.write(f"**PVC:** {pvc_count / total * 100:.1f}%")
-
-    st.caption(
-        "⚠️ PAC/PVC breakdown is experimental and shown for demonstration only. "
-        "Primary screening result is Normal vs Abnormal."
-    )
