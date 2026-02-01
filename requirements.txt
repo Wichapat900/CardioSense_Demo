@@ -4,4 +4,3 @@ numpy
 scipy
 wfdb
 scikit-learn
-neurokit2
