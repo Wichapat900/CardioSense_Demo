@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 
 from model import ECG_CNN
 from utils import normalize_beat, extract_beats
-from beat_detection import detect_r_peaks   # ✅ single source of truth
+from beat_detection import detect_r_peaks   # single source of truth
 
+# ================= CONFIG =================
 CLASSES = ["Normal", "PAC", "PVC"]
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,7 +24,7 @@ DEMO_FILES = {
 FS = 360
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-
+# ================= MODEL =================
 @st.cache_resource
 def load_model():
     model = ECG_CNN(num_classes=3)
@@ -32,10 +33,9 @@ def load_model():
     model.eval()
     return model
 
-
 model = load_model()
 
-
+# ================= PLOT =================
 def plot_ecg(signal, fs, r_peaks=None):
     t = np.arange(len(signal)) / fs
     fig, ax = plt.subplots(figsize=(12, 4))
@@ -47,11 +47,10 @@ def plot_ecg(signal, fs, r_peaks=None):
     ax.set_title("ECG Signal")
     return fig
 
-
 # ================= UI =================
 st.set_page_config(page_title="CardioSense", layout="centered")
 st.title("🫀 CardioSense")
-st.write("AI-based Arrhythmia Detection (Normal / PAC / PVC)")
+st.write("ECG Screening Demo — Normal vs Abnormal")
 st.markdown("---")
 
 option = st.radio(
@@ -83,7 +82,6 @@ if st.button("🔍 Analyze ECG"):
         st.stop()
 
     preds = []
-    probs_all = []
 
     for beat in beats:
         beat = normalize_beat(beat)
@@ -93,34 +91,32 @@ if st.button("🔍 Analyze ECG"):
             probs = torch.softmax(model(x), dim=1).cpu().numpy()[0]
 
         preds.append(np.argmax(probs))
-        probs_all.append(probs)
 
     preds = np.array(preds)
-    probs_all = np.array(probs_all)
 
-    # ================= CLINICAL DECISION LOGIC =================
+    # ================= NORMAL vs ABNORMAL LOGIC =================
     normal_count = np.sum(preds == 0)
     pac_count = np.sum(preds == 1)
     pvc_count = np.sum(preds == 2)
 
-    if pvc_count >= 1:
-        diagnosis = "PVC detected"
-        banner = st.error
-        icon = "🚨"
-    elif pac_count >= 1:
-        diagnosis = "PAC detected"
-        banner = st.warning
-        icon = "⚠️"
-    else:
-        diagnosis = "Normal rhythm"
-        banner = st.success
-        icon = "✅"
+    abnormal_count = pac_count + pvc_count
 
-    # ================= RESULTS =================
     st.markdown("## 🩺 Final Result")
-    banner(f"{icon} **{diagnosis}**")
 
+    if abnormal_count >= 1:
+        st.error("🚨 **Abnormal rhythm detected**")
+    else:
+        st.success("✅ **Normal rhythm detected**")
+
+    # ================= INFO (NOT DIAGNOSIS) =================
     total = len(preds)
+
+    st.markdown("### 📊 Beat Distribution (informational)")
     st.write(f"**Normal:** {normal_count / total * 100:.1f}%")
     st.write(f"**PAC:** {pac_count / total * 100:.1f}%")
     st.write(f"**PVC:** {pvc_count / total * 100:.1f}%")
+
+    st.caption(
+        "⚠️ PAC/PVC breakdown is experimental and shown for demonstration only. "
+        "Primary screening result is Normal vs Abnormal."
+    )
