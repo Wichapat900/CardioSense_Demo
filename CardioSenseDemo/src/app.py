@@ -5,8 +5,8 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 from model import ECG_CNN
-from utils import normalize_beat, detect_r_peaks, extract_beats
-from beat_detection import detect_r_peaks
+from utils import normalize_beat, extract_beats
+from beat_detection import detect_r_peaks   # ✅ single source of truth
 
 CLASSES = ["Normal", "PAC", "PVC"]
 
@@ -48,6 +48,7 @@ def plot_ecg(signal, fs, r_peaks=None):
     return fig
 
 
+# ================= UI =================
 st.set_page_config(page_title="CardioSense", layout="centered")
 st.title("🫀 CardioSense")
 st.write("AI-based Arrhythmia Detection (Normal / PAC / PVC)")
@@ -67,36 +68,59 @@ else:
         st.stop()
     ecg = np.load(uploaded)
 
+# ================= R-PEAK DETECTION =================
 r_peaks = detect_r_peaks(ecg, FS)
 
 st.pyplot(plot_ecg(ecg, FS, r_peaks))
 st.write(f"Detected **{len(r_peaks)} heartbeats**")
 
+# ================= ANALYSIS =================
 if st.button("🔍 Analyze ECG"):
     beats = extract_beats(ecg, r_peaks)
-    beats = np.array([normalize_beat(b) for b in beats])
+
+    if len(beats) == 0:
+        st.error("No valid heartbeats detected.")
+        st.stop()
 
     preds = []
     probs_all = []
 
     for beat in beats:
+        beat = normalize_beat(beat)
         x = torch.tensor(beat, dtype=torch.float32)[None, None, :].to(DEVICE)
+
         with torch.no_grad():
             probs = torch.softmax(model(x), dim=1).cpu().numpy()[0]
+
         preds.append(np.argmax(probs))
         probs_all.append(probs)
 
-    counts = np.bincount(preds, minlength=3)
-    avg_probs = np.mean(probs_all, axis=0)
+    preds = np.array(preds)
+    probs_all = np.array(probs_all)
 
-    st.markdown("## 🩺 Final Result")
+    # ================= CLINICAL DECISION LOGIC =================
+    normal_count = np.sum(preds == 0)
+    pac_count = np.sum(preds == 1)
+    pvc_count = np.sum(preds == 2)
 
-    if np.argmax(counts) == 0:
-        st.success("✅ Normal rhythm detected")
-    elif np.argmax(counts) == 1:
-        st.warning("⚠️ PAC detected")
+    if pvc_count >= 1:
+        diagnosis = "PVC detected"
+        banner = st.error
+        icon = "🚨"
+    elif pac_count >= 1:
+        diagnosis = "PAC detected"
+        banner = st.warning
+        icon = "⚠️"
     else:
-        st.error("🚨 PVC detected")
+        diagnosis = "Normal rhythm"
+        banner = st.success
+        icon = "✅"
 
-    for i, label in enumerate(CLASSES):
-        st.write(f"**{label}:** {avg_probs[i] * 100:.1f}%")
+    # ================= RESULTS =================
+    st.markdown("## 🩺 Final Result")
+    banner(f"{icon} **{diagnosis}**")
+
+    total = len(preds)
+    st.write(f"**Normal:** {normal_count / total * 100:.1f}%")
+    st.write(f"**PAC:** {pac_count / total * 100:.1f}%")
+    st.write(f"**PVC:** {pvc_count / total * 100:.1f}%")
