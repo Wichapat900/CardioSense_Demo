@@ -1,9 +1,36 @@
+# Python
 __pycache__/
-*.pyc
-.env
-.venv
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
 venv/
+.env/
+.venv/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDEs
 .vscode/
 .idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Model files (optional)
+# Comment this out if you WANT to upload the model
+# models/*.pth
+
+# Data files (optional – usually large)
+# data/*.npy
+# demo_ecg/*.npy
+
+# Streamlit
 .streamlit/
