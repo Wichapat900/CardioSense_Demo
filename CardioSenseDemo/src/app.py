@@ -5,11 +5,10 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 from model import ECG_CNN
-from utils import normalize_beat, extract_beats
+from utils import normalize_beat, detect_r_peaks, extract_beats
 from beat_detection import detect_r_peaks
 
-FS = 360
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+CLASSES = ["Normal", "PAC", "PVC"]
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "CardioSense_Model_3class.pth")
@@ -21,6 +20,10 @@ DEMO_FILES = {
     "PVC": "pvc_real.npy"
 }
 
+FS = 360
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+
 @st.cache_resource
 def load_model():
     model = ECG_CNN(num_classes=3)
@@ -29,24 +32,31 @@ def load_model():
     model.eval()
     return model
 
+
 model = load_model()
 
-def plot_ecg(ecg, fs, r_peaks):
-    t = np.arange(len(ecg)) / fs
+
+def plot_ecg(signal, fs, r_peaks=None):
+    t = np.arange(len(signal)) / fs
     fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(t, ecg, color="black")
-    ax.scatter(r_peaks / fs, ecg[r_peaks], color="red", s=25)
-    ax.set_title("ECG Signal (R-peaks detected)")
+    ax.plot(t, signal, color="black")
+    if r_peaks is not None:
+        ax.scatter(r_peaks / fs, signal[r_peaks], color="red", s=20)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("mV")
+    ax.set_title("ECG Signal")
     return fig
+
 
 st.set_page_config(page_title="CardioSense", layout="centered")
 st.title("🫀 CardioSense")
-st.write("AI-based ECG Analysis (Normal / Abnormal)")
+st.write("AI-based Arrhythmia Detection (Normal / PAC / PVC)")
 st.markdown("---")
 
-option = st.radio("Choose ECG input:", ["Use demo ECG signal", "Upload ECG (.npy)"])
+option = st.radio(
+    "Choose ECG input:",
+    ["Use demo ECG signal", "Upload ECG (.npy)"]
+)
 
 if option == "Use demo ECG signal":
     demo_type = st.selectbox("Select ECG type:", ["Normal", "PAC", "PVC"])
@@ -63,32 +73,30 @@ st.pyplot(plot_ecg(ecg, FS, r_peaks))
 st.write(f"Detected **{len(r_peaks)} heartbeats**")
 
 if st.button("🔍 Analyze ECG"):
-
     beats = extract_beats(ecg, r_peaks)
-
-    if len(beats) == 0:
-        st.error("No valid heartbeats detected.")
-        st.stop()
-
     beats = np.array([normalize_beat(b) for b in beats])
 
     preds = []
+    probs_all = []
 
     for beat in beats:
         x = torch.tensor(beat, dtype=torch.float32)[None, None, :].to(DEVICE)
         with torch.no_grad():
-            probs = torch.softmax(model(x), dim=1)
-        preds.append(torch.argmax(probs).item())
+            probs = torch.softmax(model(x), dim=1).cpu().numpy()[0]
+        preds.append(np.argmax(probs))
+        probs_all.append(probs)
 
-    preds = np.array(preds)
-
-    abnormal_ratio = np.mean(preds != 0)
+    counts = np.bincount(preds, minlength=3)
+    avg_probs = np.mean(probs_all, axis=0)
 
     st.markdown("## 🩺 Final Result")
 
-    if abnormal_ratio < 0.2:
-        st.success("✅ **Normal heart rhythm detected**")
+    if np.argmax(counts) == 0:
+        st.success("✅ Normal rhythm detected")
+    elif np.argmax(counts) == 1:
+        st.warning("⚠️ PAC detected")
     else:
-        st.error("🚨 **Abnormal heart rhythm detected**")
+        st.error("🚨 PVC detected")
 
-    st.caption("Abnormal includes irregular beats such as early or skipped heartbeats.")
+    for i, label in enumerate(CLASSES):
+        st.write(f"**{label}:** {avg_probs[i] * 100:.1f}%")
