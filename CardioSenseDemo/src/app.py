@@ -51,16 +51,14 @@ def plot_ecg(signal, fs, r_peaks=None):
             zorder=5
         )
 
-    # ---- ECG GRID ----
+    # ECG grid
     ax.set_xlim(t[0], t[-1])
     y_min, y_max = np.min(signal) - 0.2, np.max(signal) + 0.2
     ax.set_ylim(y_min, y_max)
 
-    # Small squares (0.04s, 0.1mV)
     ax.set_xticks(np.arange(0, t[-1], 0.04), minor=True)
     ax.set_yticks(np.arange(y_min, y_max, 0.1), minor=True)
 
-    # Big squares (0.2s, 0.5mV)
     ax.set_xticks(np.arange(0, t[-1], 0.2))
     ax.set_yticks(np.arange(y_min, y_max, 0.5))
 
@@ -107,7 +105,7 @@ if st.button("🔍 Analyze ECG"):
         st.error("No valid heartbeats detected.")
         st.stop()
 
-    preds = []
+    probs_all = []
 
     for beat in beats:
         beat = normalize_beat(beat)
@@ -116,28 +114,25 @@ if st.button("🔍 Analyze ECG"):
         with torch.no_grad():
             probs = torch.softmax(model(x), dim=1).cpu().numpy()[0]
 
-        preds.append(np.argmax(probs))
+        probs_all.append(probs)
 
-    preds = np.array(preds)
+    probs_all = np.array(probs_all)
 
-    # ================= NORMAL vs ABNORMAL =================
-    normal_count = np.sum(preds == 0)
-    pac_count = np.sum(preds == 1)
-    pvc_count = np.sum(preds == 2)
+    # ================= CONFIDENCE LOGIC =================
+    avg_probs = np.mean(probs_all, axis=0)
 
-    abnormal_count = pac_count + pvc_count
+    normal_conf = avg_probs[0]
+    abnormal_conf = avg_probs[1] + avg_probs[2]
 
+    # ================= FINAL RESULT =================
     st.markdown("## 🩺 Final Result")
 
-    if abnormal_count >= 1:
+    if abnormal_conf >= 0.5:
         st.error("🚨 **Abnormal rhythm detected**")
     else:
         st.success("✅ **Normal rhythm detected**")
 
-    # ================= INFO (NOT DIAGNOSIS) =================
-    total = len(preds)
-
-    st.markdown("### 📊 Beat Distribution (informational)")
-    st.write(f"**Normal:** {normal_count / total * 100:.1f}%")
-    st.write(f"**PAC:** {pac_count / total * 100:.1f}%")
-    st.write(f"**PVC:** {pvc_count / total * 100:.1f}%")
+    # ================= CONFIDENCE DISPLAY =================
+    st.markdown("### 📊 Model Confidence")
+    st.write(f"**Normal:** {normal_conf * 100:.1f}%")
+    st.write(f"**Abnormal:** {abnormal_conf * 100:.1f}%")
