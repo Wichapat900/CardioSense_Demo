@@ -97,17 +97,28 @@ if st.button("🔍 Analyze ECG"):
     preds = np.array(preds)
     confidences = np.array(confidences)  # ADDED
     
-    # ================= NORMAL vs ABNORMAL =================
-    normal_count = np.sum(preds == 0)
-    pac_count = np.sum(preds == 1)
-    pvc_count = np.sum(preds == 2)
-    abnormal_count = pac_count + pvc_count
+# ================= NORMAL vs ABNORMAL =================
+normal_count = np.sum(preds == 0)
+pac_count = np.sum(preds == 1)
+pvc_count = np.sum(preds == 2)
+abnormal_count = pac_count + pvc_count
+
+st.markdown("## 🩺 Final Result")
+
+if abnormal_count >= 1:
+    st.error("🚨 **Abnormal rhythm detected**")
     
-    st.markdown("## 🩺 Final Result")
-    if abnormal_count >= 1:
-        st.error("🚨 **Abnormal rhythm detected**")
-    else:
-        st.success("✅ **Normal rhythm detected**")
+    # Specify what was detected
+    detected = []
+    if pac_count > 0:
+        detected.append(f"PAC ({pac_count} beats)")
+    if pvc_count > 0:
+        detected.append(f"PVC ({pvc_count} beats)")
+    
+    st.write(f"**Detected:** {' and '.join(detected)}")
+    st.caption("⚕️ *This screening tool cannot diagnose conditions. Consult a healthcare provider for evaluation.*")
+else:
+    st.success("✅ **Normal rhythm detected**")
     
     # ================= MODEL CONFIDENCE (REPLACED BEAT DISTRIBUTION) =================
     st.markdown("### 📊 Model Confidence")
