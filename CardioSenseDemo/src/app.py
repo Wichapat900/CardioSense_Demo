@@ -18,8 +18,8 @@ MODEL_DIR = os.path.join(BASE_DIR, "models")
 DEMO_DIR = os.path.join(BASE_DIR, "demo_ecg")
 
 MODEL_PATH = os.path.join(MODEL_DIR, "CardioSense_Model.pth")
-TRAIN_MEAN_PATH = os.path.join(MODEL_DIR, "train_mean.npy")
-TRAIN_STD_PATH  = os.path.join(MODEL_DIR, "train_std.npy")
+TRAIN_MEAN_PATH = os.path.join(MODEL_DIR, "ecg_mean.npy")
+TRAIN_STD_PATH  = os.path.join(MODEL_DIR, "ecg_std.npy")
 
 DEMO_FILES = {
     "Normal": "normal_real.npy",
