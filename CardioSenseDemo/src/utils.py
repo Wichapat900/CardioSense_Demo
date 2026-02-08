@@ -1,25 +1,43 @@
+import os
 import numpy as np
-from scipy.signal import find_peaks
 
+# =========================
+# LOAD TRAIN NORMALIZATION
+# =========================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+
+TRAIN_MEAN = np.load(os.path.join(MODEL_DIR, "ecg_mean.npy"))
+TRAIN_STD  = np.load(os.path.join(MODEL_DIR, "ecg_std.npy"))
+
+# =========================
+# NORMALIZATION (OPTION B)
+# =========================
 def normalize_beat(beat: np.ndarray) -> np.ndarray:
-    beat = beat - np.mean(beat)
-    beat = beat / (np.std(beat) + 1e-8)
-    return beat
+    """
+    Normalize using TRAINING dataset statistics
+    (must match training exactly)
+    """
+    return (beat - TRAIN_MEAN) / (TRAIN_STD + 1e-8)
 
-def detect_r_peaks(ecg: np.ndarray, fs: int) -> np.ndarray:
-    ecg_norm = ecg / (np.max(np.abs(ecg)) + 1e-8)
-    min_distance = int(0.2 * fs)
+# =========================
+# BEAT EXTRACTION
+# =========================
+def extract_beats(ecg: np.ndarray, r_peaks, window=64):
+    """
+    Extract beats centered on R-peaks
 
-    r_peaks, _ = find_peaks(
-        ecg_norm,
-        distance=min_distance,
-        height=0.4
-    )
-    return r_peaks
-
-def extract_beats(ecg: np.ndarray, r_peaks: np.ndarray, window: int = 64) -> np.ndarray:
+    Returns:
+        beats: shape (num_beats, 128)
+    """
     beats = []
+
     for r in r_peaks:
-        if r - window >= 0 and r + window < len(ecg):
-            beats.append(ecg[r - window : r + window])
+        if r - window < 0 or r + window >= len(ecg):
+            continue  # skip edge beats
+
+        beat = ecg[r - window : r + window]
+        beat = normalize_beat(beat)
+        beats.append(beat)
+
     return np.array(beats)
