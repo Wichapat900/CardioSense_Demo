@@ -85,42 +85,42 @@ if st.button("🔍 Analyze ECG"):
         st.stop()
     
     preds = []
-    confidences = []  # ADDED
+    confidences = []
     for beat in beats:
         beat = normalize_beat(beat)
         x = torch.tensor(beat, dtype=torch.float32)[None, None, :].to(DEVICE)
         with torch.no_grad():
             probs = torch.softmax(model(x), dim=1).cpu().numpy()[0]
         preds.append(np.argmax(probs))
-        confidences.append(np.max(probs))  # ADDED
+        confidences.append(np.max(probs))
     
     preds = np.array(preds)
-    confidences = np.array(confidences)  # ADDED
+    confidences = np.array(confidences)
     
-# ================= NORMAL vs ABNORMAL =================
-normal_count = np.sum(preds == 0)
-pac_count = np.sum(preds == 1)
-pvc_count = np.sum(preds == 2)
-abnormal_count = pac_count + pvc_count
-
-st.markdown("## 🩺 Final Result")
-
-if abnormal_count >= 1:
-    st.error("🚨 **Abnormal rhythm detected**")
+    # ================= NORMAL vs ABNORMAL =================
+    normal_count = np.sum(preds == 0)
+    pac_count = np.sum(preds == 1)
+    pvc_count = np.sum(preds == 2)
+    abnormal_count = pac_count + pvc_count
     
-    # Specify what was detected
-    detected = []
-    if pac_count > 0:
-        detected.append(f"PAC ({pac_count} beats)")
-    if pvc_count > 0:
-        detected.append(f"PVC ({pvc_count} beats)")
+    st.markdown("## 🩺 Final Result")
     
-    st.write(f"**Detected:** {' and '.join(detected)}")
-    st.caption("⚕️ *This screening tool cannot diagnose conditions. Consult a healthcare provider for evaluation.*")
-else:
-    st.success("✅ **Normal rhythm detected**")
+    if abnormal_count >= 1:
+        st.error("🚨 **Abnormal rhythm detected**")
+        
+        # Specify what was detected
+        detected = []
+        if pac_count > 0:
+            detected.append(f"PAC ({pac_count} beats)")
+        if pvc_count > 0:
+            detected.append(f"PVC ({pvc_count} beats)")
+        
+        st.write(f"**Detected:** {' and '.join(detected)}")
+        st.caption("⚕️ *This screening tool cannot diagnose conditions. Consult a healthcare provider for evaluation.*")
+    else:
+        st.success("✅ **Normal rhythm detected**")
     
-    # ================= MODEL CONFIDENCE (REPLACED BEAT DISTRIBUTION) =================
+    # ================= MODEL CONFIDENCE =================
     st.markdown("### 📊 Model Confidence")
     avg_confidence = np.mean(confidences) * 100
     st.write(f"**Average Confidence:** {avg_confidence:.1f}%")
