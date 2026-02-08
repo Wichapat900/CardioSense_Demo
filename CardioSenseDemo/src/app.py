@@ -125,7 +125,7 @@ if st.button("🔍 Analyze ECG"):
     st.markdown("### 📊 Model Confidence")
     st.write(f"**Normal:** {normal_conf * 100:.1f}%")
     st.write(f"**Abnormal:** {abnormal_conf * 100:.1f}%")
-     st.write(abnormal_scores)
+    st.write("abnormal_scores")
 
     # ================= OPTIONAL RISK LABEL =================
     if abnormal_conf < 0.2:
