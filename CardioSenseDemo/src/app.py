@@ -103,11 +103,15 @@ if st.button("🔍 Analyze ECG"):
 
     probs_all = np.array(probs_all)
 
-    # ================= SCREENING LOGIC =================
+    # ================= CONFIDENCE (MODEL BURDEN) =================
     # abnormal = PAC + PVC
     abnormal_scores = probs_all[:, 1] + probs_all[:, 2]
 
-    abnormal_conf = np.max(abnormal_scores)
+    # use top 20% most abnormal beats
+    k = max(1, int(0.2 * len(abnormal_scores)))
+    top_abnormal = np.sort(abnormal_scores)[-k:]
+
+    abnormal_conf = float(np.mean(top_abnormal))
     normal_conf = 1.0 - abnormal_conf
 
     # ================= RESULTS =================
@@ -121,3 +125,13 @@ if st.button("🔍 Analyze ECG"):
     st.markdown("### 📊 Model Confidence")
     st.write(f"**Normal:** {normal_conf * 100:.1f}%")
     st.write(f"**Abnormal:** {abnormal_conf * 100:.1f}%")
+
+    # ================= OPTIONAL RISK LABEL =================
+    if abnormal_conf < 0.2:
+        risk = "Low"
+    elif abnormal_conf < 0.5:
+        risk = "Moderate"
+    else:
+        risk = "High"
+
+    st.write(f"**Risk level:** {risk}")
