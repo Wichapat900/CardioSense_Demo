@@ -9,7 +9,7 @@ from beat_detection import detect_r_peaks   # single source of truth
 # ================= CONFIG =================
 CLASSES = ["Normal", "PAC", "PVC"]
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "CardioSense_Model_3class.pth")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "CardioSense_Model.pth")
 DEMO_DIR = os.path.join(BASE_DIR, "demo_ecg")
 DEMO_FILES = {
     "Normal": "normal_real.npy",
