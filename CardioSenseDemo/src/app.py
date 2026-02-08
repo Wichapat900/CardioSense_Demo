@@ -9,8 +9,6 @@ from utils import normalize_beat, extract_beats
 from beat_detection import detect_r_peaks   # single source of truth
 
 # ================= CONFIG =================
-CLASSES = ["Normal", "PAC", "PVC"]
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "CardioSense_Model_3class.pth")
 DEMO_DIR = os.path.join(BASE_DIR, "demo_ecg")
@@ -35,46 +33,33 @@ def load_model():
 
 model = load_model()
 
-# ================= ECG PLOT WITH GRID =================
+# ================= PLOT =================
 def plot_ecg(signal, fs, r_peaks=None):
     t = np.arange(len(signal)) / fs
-
     fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(t, signal, color="black", linewidth=1.2)
+
+    ax.plot(t, signal, color="black", linewidth=1)
 
     if r_peaks is not None:
         ax.scatter(
             r_peaks / fs,
             signal[r_peaks],
             color="red",
-            s=25,
-            zorder=5
+            s=20,
+            zorder=3
         )
-
-    # ECG grid
-    ax.set_xlim(t[0], t[-1])
-    y_min, y_max = np.min(signal) - 0.2, np.max(signal) + 0.2
-    ax.set_ylim(y_min, y_max)
-
-    ax.set_xticks(np.arange(0, t[-1], 0.04), minor=True)
-    ax.set_yticks(np.arange(y_min, y_max, 0.1), minor=True)
-
-    ax.set_xticks(np.arange(0, t[-1], 0.2))
-    ax.set_yticks(np.arange(y_min, y_max, 0.5))
-
-    ax.grid(which="minor", color="#f4cccc", linewidth=0.5)
-    ax.grid(which="major", color="#e06666", linewidth=0.8)
 
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("mV")
     ax.set_title("ECG Signal")
+    ax.grid(True, which="both", alpha=0.2)
 
     return fig
 
 # ================= UI =================
 st.set_page_config(page_title="CardioSense", layout="centered")
 st.title("🫀 CardioSense")
-st.write("ECG Screening Demo — **Normal vs Abnormal**")
+st.write("ECG Screening Demo — Normal vs Abnormal")
 st.markdown("---")
 
 option = st.radio(
@@ -118,21 +103,21 @@ if st.button("🔍 Analyze ECG"):
 
     probs_all = np.array(probs_all)
 
-    # ================= CONFIDENCE LOGIC =================
-    avg_probs = np.mean(probs_all, axis=0)
+    # ================= SCREENING LOGIC =================
+    # abnormal = PAC + PVC
+    abnormal_scores = probs_all[:, 1] + probs_all[:, 2]
 
-    normal_conf = avg_probs[0]
-    abnormal_conf = avg_probs[1] + avg_probs[2]
+    abnormal_conf = np.max(abnormal_scores)
+    normal_conf = 1.0 - abnormal_conf
 
-    # ================= FINAL RESULT =================
+    # ================= RESULTS =================
     st.markdown("## 🩺 Final Result")
 
-    if abnormal_conf >= 0.5:
-        st.error("🚨 **Abnormal rhythm detected**")
+    if abnormal_conf >= 0.25:
+        st.error("🚨 **Abnormal rhythm risk detected**")
     else:
-        st.success("✅ **Normal rhythm detected**")
+        st.success("✅ **Low abnormality risk**")
 
-    # ================= CONFIDENCE DISPLAY =================
     st.markdown("### 📊 Model Confidence")
     st.write(f"**Normal:** {normal_conf * 100:.1f}%")
     st.write(f"**Abnormal:** {abnormal_conf * 100:.1f}%")
