@@ -9,8 +9,6 @@ from utils import normalize_beat, extract_beats
 from beat_detection import detect_r_peaks   # single source of truth
 
 # ================= CONFIG =================
-CLASSES = ["Normal", "PAC", "PVC"]
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "CardioSense_Model_3class.pth")
 DEMO_DIR = os.path.join(BASE_DIR, "demo_ecg")
@@ -35,48 +33,33 @@ def load_model():
 
 model = load_model()
 
-# ================= ECG PLOT WITH GRID =================
+# ================= PLOT =================
 def plot_ecg(signal, fs, r_peaks=None):
     t = np.arange(len(signal)) / fs
-
     fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(t, signal, color="black", linewidth=1.2)
+
+    ax.plot(t, signal, color="black", linewidth=1)
 
     if r_peaks is not None:
         ax.scatter(
             r_peaks / fs,
             signal[r_peaks],
             color="red",
-            s=25,
-            zorder=5
+            s=20,
+            zorder=3
         )
-
-    # ---- ECG GRID ----
-    ax.set_xlim(t[0], t[-1])
-    y_min, y_max = np.min(signal) - 0.2, np.max(signal) + 0.2
-    ax.set_ylim(y_min, y_max)
-
-    # Small squares (0.04s, 0.1mV)
-    ax.set_xticks(np.arange(0, t[-1], 0.04), minor=True)
-    ax.set_yticks(np.arange(y_min, y_max, 0.1), minor=True)
-
-    # Big squares (0.2s, 0.5mV)
-    ax.set_xticks(np.arange(0, t[-1], 0.2))
-    ax.set_yticks(np.arange(y_min, y_max, 0.5))
-
-    ax.grid(which="minor", color="#f4cccc", linewidth=0.5)
-    ax.grid(which="major", color="#e06666", linewidth=0.8)
 
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("mV")
     ax.set_title("ECG Signal")
+    ax.grid(True, which="both", alpha=0.2)
 
     return fig
 
 # ================= UI =================
 st.set_page_config(page_title="CardioSense", layout="centered")
 st.title("🫀 CardioSense")
-st.write("ECG Screening Demo — **Normal vs Abnormal**")
+st.write("ECG Screening Demo — Normal vs Abnormal")
 st.markdown("---")
 
 option = st.radio(
@@ -107,7 +90,7 @@ if st.button("🔍 Analyze ECG"):
         st.error("No valid heartbeats detected.")
         st.stop()
 
-    preds = []
+    probs_all = []
 
     for beat in beats:
         beat = normalize_beat(beat)
@@ -116,28 +99,39 @@ if st.button("🔍 Analyze ECG"):
         with torch.no_grad():
             probs = torch.softmax(model(x), dim=1).cpu().numpy()[0]
 
-        preds.append(np.argmax(probs))
+        probs_all.append(probs)
 
-    preds = np.array(preds)
+    probs_all = np.array(probs_all)
 
-    # ================= NORMAL vs ABNORMAL =================
-    normal_count = np.sum(preds == 0)
-    pac_count = np.sum(preds == 1)
-    pvc_count = np.sum(preds == 2)
+    # ================= CONFIDENCE (MODEL BURDEN) =================
+    # abnormal = PAC + PVC
+    abnormal_scores = probs_all[:, 1] + probs_all[:, 2]
 
-    abnormal_count = pac_count + pvc_count
+    # use top 20% most abnormal beats
+    k = max(1, int(0.2 * len(abnormal_scores)))
+    top_abnormal = np.sort(abnormal_scores)[-k:]
 
+    abnormal_conf = float(np.mean(top_abnormal))
+    normal_conf = 1.0 - abnormal_conf
+
+    # ================= RESULTS =================
     st.markdown("## 🩺 Final Result")
 
-    if abnormal_count >= 1:
-        st.error("🚨 **Abnormal rhythm detected**")
+    if abnormal_conf >= 0.25:
+        st.error("🚨 **Abnormal rhythm risk detected**")
     else:
-        st.success("✅ **Normal rhythm detected**")
+        st.success("✅ **Low abnormality risk**")
 
-    # ================= INFO (NOT DIAGNOSIS) =================
-    total = len(preds)
+    st.markdown("### 📊 Model Confidence")
+    st.write(f"**Normal:** {normal_conf * 100:.1f}%")
+    st.write(f"**Abnormal:** {abnormal_conf * 100:.1f}%")
 
-    st.markdown("### 📊 Beat Distribution (informational)")
-    st.write(f"**Normal:** {normal_count / total * 100:.1f}%")
-    st.write(f"**PAC:** {pac_count / total * 100:.1f}%")
-    st.write(f"**PVC:** {pvc_count / total * 100:.1f}%")
+    # ================= OPTIONAL RISK LABEL =================
+    if abnormal_conf < 0.2:
+        risk = "Low"
+    elif abnormal_conf < 0.5:
+        risk = "Moderate"
+    else:
+        risk = "High"
+
+    st.write(f"**Risk level:** {risk}")
